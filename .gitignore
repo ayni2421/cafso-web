@@ -1,0 +1,4 @@
+# Nothing to ignore - pure HTML/JS, no build step
+*.log
+.DS_Store
+Thumbs.db

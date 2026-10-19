@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CAFSO Network — Commercial Asset & Field-Service Orchestration</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#f8fafc;color:#1e293b}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:.6rem 1.4rem;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:.875rem;transition:all .2s;text-decoration:none}
+.btn:hover{filter:brightness(.92)}
+.btn-primary{background:#1e40af;color:#fff}
+.btn-white{background:#fff;color:#1e40af;border:1px solid #e2e8f0}
+.btn-teal{background:#0d9488;color:#fff}
+.btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,.5)}
+.btn-outline:hover{background:rgba(255,255,255,.1)}
+.btn-sm{padding:.4rem .9rem;font-size:.8rem}
+.btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}
+input,select,textarea{width:100%;padding:.65rem 1rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.9rem;outline:none;color:#1e293b;background:#fff;transition:border .2s}
+input:focus,select:focus,textarea:focus{border-color:#1e40af;box-shadow:0 0 0 3px rgba(30,64,175,.1)}
+.card{background:#fff;border-radius:16px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f1f5f9}
+.grad-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#0d9488 100%)}
+.section{padding:5rem 1.5rem}
+.container{max-width:1140px;margin:0 auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:2rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:600}
+.tag-blue{background:#dbeafe;color:#1e40af}
+.tag-green{background:#dcfce7;color:#166534}
+.tag-yellow{background:#fef9c3;color:#854d0e}
+.tag-red{background:#fee2e2;color:#991b1b}
+.tag-purple{background:#ede9fe;color:#6b21a8}
+.tag-orange{background:#ffedd5;color:#9a3412}
+.tag-gray{background:#f1f5f9;color:#64748b}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.nav-top{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(15,23,42,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08)}
+.step-num{width:40px;height:40px;border-radius:50%;background:#1e40af;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;flex-shrink:0}
+.role-card{background:#fff;border-radius:12px;padding:1.25rem;border:2px solid #f1f5f9;transition:border .2s;cursor:default}
+.role-card:hover{border-color:#1e40af}
+.feature-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;margin-bottom:1rem}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:.75rem 1rem;border-radius:8px;font-size:.85rem;margin-bottom:.9rem}
+.success-box{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:1.25rem;border-radius:12px;text-align:center}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.82rem;font-weight:600;color:#374151;margin-bottom:5px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.divider{border:none;border-top:1px solid #e2e8f0;margin:1.25rem 0}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{background:#f8fafc;padding:.6rem .9rem;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
+td{padding:.65rem .9rem;border-bottom:1px solid #f1f5f9;color:#374151}
+tr:hover td{background:#f8fafc}
+@media(max-width:768px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.fr{grid-template-columns:1fr}.nav-top .hide-mobile{display:none}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback}=React;
+const ID='http://localhost:4001';
+const ASSET='http://localhost:4002';
+
+/* ── Auth ─────────────────────────────────────────────────────── */
+const auth={
+  getToken:()=>sessionStorage.getItem('t'),
+  getUser:()=>{try{return JSON.parse(localStorage.getItem('u')||'null')}catch{return null}},
+  getOrgId:()=>localStorage.getItem('o'),
+  set:(tokens,user)=>{sessionStorage.setItem('t',tokens.accessToken);localStorage.setItem('u',JSON.stringify(user));localStorage.setItem('o',user.memberships?.[0]?.orgId||'');},
+  clear:()=>{sessionStorage.clear();localStorage.removeItem('u');localStorage.removeItem('o');}
+};
+
+/* ── Router ───────────────────────────────────────────────────── */
+function useRoute(){
+  const[path,setPath]=useState(window.location.pathname);
+  useEffect(()=>{const h=()=>setPath(window.location.pathname);window.addEventListener('popstate',h);return()=>window.removeEventListener('popstate',h);},[]);
+  const navigate=to=>{window.history.pushState({},'',to);setPath(to);};
+  return{path,navigate};
+}
+
+/* ── Top Nav (for logged-in pages) ────────────────────────────── */
+function AppNav({user,navigate}){
+  const m=user?.memberships?.[0];
+  const rc={ORG_ADMIN:'#7c3aed',DISPATCHER:'#1e40af',TECHNICIAN:'#0d9488',SUPERVISOR:'#b45309',ASSET_MANAGER:'#16a34a',INVENTORY_MANAGER:'#dc2626',REQUESTER:'#64748b',MAINTENANCE_MANAGER:'#9333ea'};
+  return(
+    <nav style={{background:'#0f172a',color:'#fff',padding:'.8rem 1.5rem',display:'flex',justifyContent:'space-between',alignItems:'center',boxShadow:'0 2px 8px rgba(0,0,0,.3)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <div style={{width:36,height:36,background:'linear-gradient(135deg,#1e40af,#0d9488)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,color:'#fff',fontSize:16}}>C</div>
+        <div>
+          <div style={{fontWeight:700,fontSize:'.92rem',letterSpacing:'-.01em'}}>CAFSO Network</div>
+          <div style={{fontSize:'.7rem',color:'#94a3b8'}}>{m?.orgName||'Organization'}</div>
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <span style={{background:rc[m?.role]||'#1e40af',padding:'3px 10px',borderRadius:99,fontSize:'.71rem',fontWeight:700,color:'#fff'}}>{(m?.role||'').replace(/_/g,' ')}</span>
+        <span style={{fontSize:'.85rem',fontWeight:500,color:'#e2e8f0'}}>{user?.fullName}</span>
+        <button className="btn btn-ghost btn-sm" onClick={()=>{auth.clear();navigate('/');}}>Sign out</button>
+      </div>
+    </nav>
+  );
+}
+
+/* ── Stat Card ─────────────────────────────────────────────────── */
+function Stat({label,value,color='#1e40af',bg='#dbeafe',sub}){
+  return(
+    <div className="card" style={{padding:'1.1rem',textAlign:'center'}}>
+      <div style={{fontSize:'1.9rem',fontWeight:800,color,lineHeight:1,marginBottom:3}}>{value}</div>
+      <div style={{fontSize:'.82rem',fontWeight:600,color:'#374151',marginBottom:2}}>{label}</div>
+      {sub&&<div style={{fontSize:'.72rem',color:'#94a3b8'}}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LANDING PAGE  (Professional)
+───────────────────────────────────────────────────────────────── */
+function Landing({navigate}){
+  /* Nav */
+  const[scrolled,setScrolled]=useState(false);
+  useEffect(()=>{const h=()=>setScrolled(window.scrollY>20);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h);},[]);
+
+  const roles=[
+    {title:'OrgAdmin',icon:'🏢',color:'#7c3aed',desc:'Registers the organization, invites all team members, configures settings, sees all services and metrics.'},
+    {title:'Asset Manager',icon:'🏭',color:'#16a34a',desc:'Registers assets, creates maintenance plans, monitors asset conditions and lifecycle history.'},
+    {title:'Maintenance Manager',icon:'🔧',color:'#9333ea',desc:'Approves maintenance plans, oversees preventive maintenance schedules and compliance rates.'},
+    {title:'Dispatcher',icon:'📡',color:'#1e40af',desc:'Reviews and prioritizes work orders, uses AI recommendations to assign qualified technicians.'},
+    {title:'Technician',icon:'👷',color:'#0d9488',desc:'Receives assigned jobs, executes field work, records diagnosis, uploads photo evidence.'},
+    {title:'Inventory Manager',icon:'📦',color:'#dc2626',desc:'Manages spare parts catalog, tracks stock levels, creates procurement requisitions.'},
+    {title:'Supervisor',icon:'🔍',color:'#b45309',desc:'Verifies completed work, reviews evidence, approves or returns jobs, monitors SLA compliance.'},
+    {title:'Requester',icon:'📋',color:'#64748b',desc:'Reports faults and equipment failures, tracks the status of their submitted requests.'},
+  ];
+
+  const features=[
+    {icon:'⚙',bg:'#dbeafe',title:'Asset Lifecycle Management',desc:'Register, track, and manage all your commercial assets from commissioning to retirement. Full hierarchy, condition history, and document management.'},
+    {icon:'📅',bg:'#dcfce7',title:'Preventive Maintenance',desc:'Create recurring maintenance plans, generate inspection tasks automatically, track PM compliance rates. Never miss a scheduled service.'},
+    {icon:'📋',bg:'#fef3c7',title:'Work Order Orchestration',desc:'Full work order lifecycle from fault report to verified closure. State machine with complete audit trail on every transition.'},
+    {icon:'🤖',bg:'#ede9fe',title:'AI-Assisted Dispatch',desc:'Constraint-aware technician scoring. Hard constraints (qualifications, certification expiry) enforced automatically. Weighted soft scoring for optimization.'},
+    {icon:'📦',bg:'#ffedd5',title:'Inventory & Procurement',desc:'Real-time stock levels, automatic reservations tied to work orders, reorder alerts, and purchase requisition workflows.'},
+    {icon:'📊',bg:'#fce7f3',title:'Analytics & Risk Scoring',desc:'Rule-based maintenance risk scoring (0-100), MTTR, MTBF, SLA compliance, technician utilization — all with documented formulas.'},
+  ];
+
+  const stats=[
+    {value:'7',label:'Microservices',sub:'Independently deployable'},
+    {value:'15',label:'Functional Modules',sub:'Full SRS coverage'},
+    {value:'9',label:'User Roles',sub:'Role-specific dashboards'},
+    {value:'100%',label:'Multi-tenant',sub:'Org-scoped isolation'},
+  ];
+
+  return(
+    <div>
+      {/* Fixed Nav */}
+      <nav className="nav-top">
+        <div className="container" style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'.9rem 1.5rem'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,background:'linear-gradient(135deg,#1e40af,#0d9488)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,color:'#fff',fontSize:14}}>C</div>
+            <span style={{fontWeight:800,color:'#fff',fontSize:'1rem',letterSpacing:'-.02em'}}>CAFSO Network</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <a href="http://localhost:4001/api/docs" target="_blank" className="btn btn-ghost btn-sm hide-mobile" style={{fontSize:'.78rem'}}>API Docs</a>
+            <button className="btn btn-ghost btn-sm" onClick={()=>navigate('/login')}>Sign In</button>
+            <button className="btn btn-teal btn-sm" onClick={()=>navigate('/register')}>Get Started</button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <div className="grad-hero" style={{paddingTop:'7rem',paddingBottom:'5rem',paddingLeft:'1.5rem',paddingRight:'1.5rem'}}>
+        <div className="container" style={{textAlign:'center'}}>
+          <div style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.2)',borderRadius:99,padding:'6px 16px',marginBottom:'1.5rem'}}>
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#4ade80',display:'inline-block'}}></span>
+            <span style={{fontSize:'.78rem',color:'#e2e8f0',fontWeight:500}}>Multi-tenant &middot; Event-Driven &middot; AI-Assisted</span>
+          </div>
+          <h1 style={{fontSize:'clamp(2.2rem,5vw,3.5rem)',fontWeight:900,color:'#fff',lineHeight:1.1,letterSpacing:'-.03em',marginBottom:'1.25rem'}}>
+            Commercial Asset &amp;<br/>Field-Service Orchestration
+          </h1>
+          <p style={{fontSize:'clamp(1rem,2vw,1.2rem)',color:'#94a3b8',maxWidth:680,margin:'0 auto 2.5rem',lineHeight:1.7}}>
+            A multi-tenant, event-driven platform that coordinates assets, field technicians, spare parts, contracts and verification evidence — with AI-assisted dispatch and risk scoring.
+          </p>
+          <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap',marginBottom:'3rem'}}>
+            <button className="btn btn-teal" style={{padding:'.8rem 2rem',fontSize:'1rem'}} onClick={()=>navigate('/register')}>Register Your Organization</button>
+            <button className="btn btn-outline" style={{padding:'.8rem 2rem',fontSize:'1rem'}} onClick={()=>navigate('/login')}>Sign In</button>
+          </div>
+          {/* Tech badges */}
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center'}}>
+            {['NestJS','Next.js','PostgreSQL','RabbitMQ','Redis','Prisma ORM','FastAPI','Docker','JWT + RBAC','Event-Driven'].map(t=>(
+              <span key={t} style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:99,padding:'4px 12px',fontSize:'.75rem',color:'#cbd5e1',fontWeight:500}}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{background:'#fff',borderBottom:'1px solid #e2e8f0',padding:'2.5rem 1.5rem'}}>
+        <div className="container">
+          <div className="grid4">
+            {stats.map(s=>(
+              <div key={s.label} style={{textAlign:'center',padding:'.5rem'}}>
+                <div style={{fontSize:'2.5rem',fontWeight:900,color:'#1e40af',lineHeight:1}}>{s.value}</div>
+                <div style={{fontSize:'.9rem',fontWeight:700,color:'#1e293b',marginTop:4}}>{s.label}</div>
+                <div style={{fontSize:'.78rem',color:'#94a3b8',marginTop:2}}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Features */}
+      <div className="section" style={{background:'#f8fafc'}}>
+        <div className="container">
+          <div style={{textAlign:'center',marginBottom:'3rem'}}>
+            <h2 style={{fontSize:'2rem',fontWeight:800,color:'#0f172a',marginBottom:'.75rem'}}>Everything in one platform</h2>
+            <p style={{color:'#64748b',fontSize:'1.05rem',maxWidth:600,margin:'0 auto'}}>From asset registration to work order closure — all connected, all audited, all real-time.</p>
+          </div>
+          <div className="grid3">
+            {features.map(f=>(
+              <div key={f.title} className="card" style={{padding:'1.5rem'}}>
+                <div className="feature-icon" style={{background:f.bg}}>{f.icon}</div>
+                <h3 style={{fontWeight:700,fontSize:'1rem',marginBottom:'.5rem',color:'#0f172a'}}>{f.title}</h3>
+                <p style={{fontSize:'.875rem',color:'#64748b',lineHeight:1.6}}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* How to Get Started */}
+      <div className="section" style={{background:'#fff'}}>
+        <div className="container">
+          <div style={{textAlign:'center',marginBottom:'3rem'}}>
+            <h2 style={{fontSize:'2rem',fontWeight:800,color:'#0f172a',marginBottom:'.75rem'}}>How to get started</h2>
+            <p style={{color:'#64748b',fontSize:'1.05rem'}}>Set up your organization in 3 steps.</p>
+          </div>
+          <div className="grid3" style={{marginBottom:'3rem'}}>
+            {[
+              {n:'1',title:'Register Your Organization',desc:'The first person to sign up becomes the OrgAdmin. Enter your organization name, a unique slug, and your real email address. You get full access immediately.',action:'Register Now',link:'/register',color:'#1e40af'},
+              {n:'2',title:'Invite Your Team by Role',desc:'After login, go to your dashboard and invite team members using their Gmail addresses. Assign each person exactly the role they need — Technician, Dispatcher, Supervisor, etc.',action:'See All Roles',link:'#roles',color:'#0d9488'},
+              {n:'3',title:'Start Using the System',desc:'Each role gets their own tailored dashboard. Register assets, create maintenance plans, submit work orders, dispatch technicians, and verify completions.',action:'Sign In',link:'/login',color:'#7c3aed'},
+            ].map(s=>(
+              <div key={s.n} className="card" style={{padding:'1.75rem'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:'1rem'}}>
+                  <div className="step-num" style={{background:s.color}}>{s.n}</div>
+                  <h3 style={{fontWeight:700,fontSize:'1rem',color:'#0f172a'}}>{s.title}</h3>
+                </div>
+                <p style={{fontSize:'.875rem',color:'#64748b',lineHeight:1.65,marginBottom:'1.25rem'}}>{s.desc}</p>
+                <button className="btn btn-primary btn-sm" style={{background:s.color}} onClick={()=>navigate(s.link)}>{s.action}</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Role clarification callout */}
+          <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:16,padding:'1.75rem',display:'flex',gap:'1.5rem',alignItems:'flex-start'}}>
+            <div style={{fontSize:'2rem',flexShrink:0}}>💡</div>
+            <div>
+              <div style={{fontWeight:700,color:'#0c4a6e',marginBottom:6,fontSize:'1rem'}}>Understanding Roles</div>
+              <p style={{fontSize:'.875rem',color:'#0369a1',lineHeight:1.65}}>
+                <strong>Only the OrgAdmin registers directly.</strong> All other users (Technician, Dispatcher, Supervisor, Asset Manager, etc.) are <strong>invited by the OrgAdmin</strong> via email after registration.
+                The OrgAdmin assigns each invited person their role. Each role sees a completely different dashboard with only the features relevant to their work.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Roles Section */}
+      <div className="section" style={{background:'#f8fafc'}} id="roles">
+        <div className="container">
+          <div style={{textAlign:'center',marginBottom:'3rem'}}>
+            <h2 style={{fontSize:'2rem',fontWeight:800,color:'#0f172a',marginBottom:'.75rem'}}>8 Role-Specific Dashboards</h2>
+            <p style={{color:'#64748b',fontSize:'1.05rem',maxWidth:600,margin:'0 auto'}}>Each role sees only what they need. No clutter, no confusion.</p>
+          </div>
+          <div className="grid4">
+            {roles.map(r=>(
+              <div key={r.title} className="role-card">
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'.75rem'}}>
+                  <div style={{width:40,height:40,borderRadius:10,background:r.color+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{r.icon}</div>
+                  <div style={{fontWeight:700,fontSize:'.9rem',color:'#0f172a'}}>{r.title}</div>
+                </div>
+                <p style={{fontSize:'.8rem',color:'#64748b',lineHeight:1.55}}>{r.desc}</p>
+                <div style={{marginTop:'.75rem'}}>
+                  {r.title==='OrgAdmin'
+                    ?<span className="tag" style={{background:'#fef9c3',color:'#854d0e',fontSize:'.68rem'}}>Registers first</span>
+                    :<span className="tag" style={{background:'#f1f5f9',color:'#64748b',fontSize:'.68rem'}}>Invited by OrgAdmin</span>
+                  }
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Architecture */}
+      <div className="section" style={{background:'#0f172a',color:'#fff'}}>
+        <div className="container">
+          <div style={{textAlign:'center',marginBottom:'2.5rem'}}>
+            <h2 style={{fontSize:'2rem',fontWeight:800,color:'#fff',marginBottom:'.75rem'}}>Microservice Architecture</h2>
+            <p style={{color:'#94a3b8',fontSize:'1rem'}}>7 independently deployable services, connected via domain events.</p>
+          </div>
+          <div className="grid4" style={{gap:'.75rem',marginBottom:'2rem'}}>
+            {[
+              {n:'S1',name:'Identity & Tenant',port:4001,desc:'Auth, JWT, RBAC, multi-tenancy, audit'},
+              {n:'S2',name:'Asset & Maintenance',port:4002,desc:'Assets, sites, maintenance plans, tasks'},
+              {n:'S3',name:'Work Order & Dispatch',port:4003,desc:'WOs, technicians, AI dispatch'},
+              {n:'S4',name:'Field Execution',port:4004,desc:'Mobile jobs, checklists, evidence'},
+              {n:'S5',name:'Inventory & Procurement',port:4005,desc:'Parts, stock, reservations, suppliers'},
+              {n:'S6',name:'Contract & SLA',port:4006,desc:'SLA timers, escalation, notifications'},
+              {n:'S7',name:'AI & Analytics',port:4007,desc:'Risk scoring, metrics, dispatch eval'},
+            ].map(s=>(
+              <a key={s.n} href={'http://localhost:'+s.port+'/api/docs'} target="_blank"
+                style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:10,padding:'1rem',textDecoration:'none',color:'#fff',display:'block',transition:'background .2s'}}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.05)'}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                  <span style={{background:'#1e40af',padding:'2px 7px',borderRadius:99,fontSize:'.68rem',fontWeight:700,color:'#fff'}}>{s.n}</span>
+                  <span style={{fontSize:'.8rem',fontWeight:600}}>{s.name}</span>
+                </div>
+                <div style={{fontSize:'.72rem',color:'#94a3b8',marginBottom:6}}>{s.desc}</div>
+                <div style={{fontSize:'.7rem',color:'#475569'}}>:{s.port} — API Docs</div>
+              </a>
+            ))}
+            <div style={{background:'rgba(13,148,136,.15)',border:'1px solid rgba(13,148,136,.3)',borderRadius:10,padding:'1rem'}}>
+              <div style={{fontSize:'.8rem',fontWeight:600,color:'#5eead4',marginBottom:6}}>Infrastructure</div>
+              <div style={{fontSize:'.72rem',color:'#94a3b8',lineHeight:1.6}}>PostgreSQL (7 DBs)<br/>RabbitMQ Events<br/>Redis Cache<br/>Docker Compose</div>
+            </div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <a href="http://localhost:15672" target="_blank" className="btn btn-ghost btn-sm">RabbitMQ Dashboard :15672</a>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="section" style={{background:'linear-gradient(135deg,#1e40af,#0d9488)',textAlign:'center'}}>
+        <div className="container">
+          <h2 style={{fontSize:'2rem',fontWeight:800,color:'#fff',marginBottom:'.75rem'}}>Ready to get started?</h2>
+          <p style={{color:'rgba(255,255,255,.8)',fontSize:'1rem',marginBottom:'2rem'}}>Register your organization now. It takes less than 2 minutes.</p>
+          <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+            <button className="btn btn-white" style={{padding:'.8rem 2rem',fontSize:'1rem'}} onClick={()=>navigate('/register')}>Register Organization</button>
+            <button className="btn btn-outline" style={{padding:'.8rem 2rem',fontSize:'1rem'}} onClick={()=>navigate('/login')}>Sign In</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{background:'#0f172a',padding:'1.5rem',textAlign:'center',color:'#475569',fontSize:'.8rem',borderTop:'1px solid #1e293b'}}>
+        CAFSO Network &mdash; Commercial Asset &amp; Field-Service Orchestration Network
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   REGISTER PAGE  (OrgAdmin only)
+───────────────────────────────────────────────────────────────── */
+function Register({navigate}){
+  const[form,setForm]=useState({orgName:'',orgSlug:'',fullName:'',email:'',password:'',confirmPassword:'',timezone:'Africa/Addis_Ababa',country:'ET',industry:'',employeeCount:'',businessRegNumber:'',phone:'',website:'',address:''});
+  const[error,setError]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[success,setSuccess]=useState(false);
+
+  function update(k,v){
+    const n={...form,[k]:v};
+    if(k==='orgName') n.orgSlug=v.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    setForm(n);
+  }
+
+  async function submit(e){
+    e.preventDefault();setError('');
+    if(form.password!==form.confirmPassword){setError('Passwords do not match');return;}
+    if(form.password.length<10){setError('Password must be at least 10 characters');return;}
+    setLoading(true);
+    try{
+      const res=await fetch(ID+'/api/v1/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({orgName:form.orgName,orgSlug:form.orgSlug,fullName:form.fullName,email:form.email,password:form.password,timezone:form.timezone,country:form.country,industry:form.industry,employeeCount:form.employeeCount,businessRegNumber:form.businessRegNumber,phone:form.phone,website:form.website,address:form.address})});
+      const data=await res.json();
+      if(!data.success){setError(data.message||'Registration failed');return;}
+      setSuccess(true);
+      setTimeout(()=>navigate('/login'),3000);
+    }catch{setError('Cannot connect to Identity Service. Make sure it is running on port 4001.');}
+    finally{setLoading(false);}
+  }
+
+  return(
+    <div style={{minHeight:'100vh',background:'#f8fafc',display:'flex',flexDirection:'column'}}>
+      {/* Header */}
+      <div style={{background:'#0f172a',padding:'1rem 1.5rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={()=>navigate('/')}>
+          <div style={{width:32,height:32,background:'linear-gradient(135deg,#1e40af,#0d9488)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,color:'#fff',fontSize:14}}>C</div>
+          <span style={{fontWeight:800,color:'#fff',fontSize:'.95rem'}}>CAFSO Network</span>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>navigate('/login')}>Already registered? Sign in</button>
+      </div>
+
+      <div style={{flex:1,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'2rem 1rem',gap:'2rem',flexWrap:'wrap'}}>
+        {/* Info panel */}
+        <div style={{maxWidth:360,paddingTop:'1rem'}}>
+          <h1 style={{fontSize:'1.6rem',fontWeight:800,color:'#0f172a',marginBottom:'.75rem',lineHeight:1.2}}>Register Your Organization</h1>
+          <p style={{color:'#64748b',fontSize:'.9rem',lineHeight:1.65,marginBottom:'1.5rem'}}>
+            As the <strong>OrgAdmin</strong>, you are the first person to set up your organization on CAFSO. After registration, you can invite your entire team.
+          </p>
+          <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:12,padding:'1.25rem',marginBottom:'1.25rem'}}>
+            <div style={{fontWeight:700,color:'#1e40af',marginBottom:8,fontSize:'.875rem'}}>What happens after you register:</div>
+            {['You land on your Admin Dashboard','Use "Invite Member" to add your team','Assign each person a role by their function','Each role gets their own focused dashboard'].map((s,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:6}}>
+                <div style={{width:20,height:20,borderRadius:'50%',background:'#1e40af',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.68rem',fontWeight:700,flexShrink:0,marginTop:1}}>{i+1}</div>
+                <span style={{fontSize:'.82rem',color:'#1e40af'}}>{s}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:12,padding:'1rem'}}>
+            <div style={{fontWeight:700,color:'#166534',marginBottom:4,fontSize:'.82rem'}}>Roles you can invite:</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+              {['Dispatcher','Technician','Asset Manager','Supervisor','Inventory Manager','Maintenance Manager','Requester'].map(r=>(
+                <span key={r} style={{background:'#dcfce7',color:'#166534',padding:'2px 8px',borderRadius:99,fontSize:'.7rem',fontWeight:600}}>{r}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Registration form */}
+        <div className="card" style={{width:'100%',maxWidth:480,padding:'2rem'}}>
+          <h2 style={{fontSize:'1.2rem',fontWeight:700,marginBottom:'1.5rem',color:'#0f172a'}}>Create your account</h2>
+          {success?(
+            <div className="success-box">
+              <div style={{fontSize:'2.5rem',marginBottom:12}}>&#10003;</div>
+              <div style={{fontWeight:700,fontSize:'1.1rem',marginBottom:6}}>Registration Submitted!</div>
+              <div style={{fontSize:'.875rem',color:'#166534',marginBottom:8}}>Your organization is now <strong>pending verification</strong> by a Platform Administrator.</div>
+              <div style={{fontSize:'.82rem',color:'#14532d',background:'#dcfce7',borderRadius:8,padding:'10px 12px',textAlign:'left',marginBottom:8}}>
+                <strong>What happens next:</strong><br/>
+                1. A Platform Admin will review your registration details<br/>
+                2. Your business registration number will be verified<br/>
+                3. You will receive approval confirmation<br/>
+                4. Once approved, you can invite your team members
+              </div>
+              <div style={{fontSize:'.78rem',color:'#166534'}}>Redirecting to login in 3 seconds...</div>
+            </div>
+          ):(
+            <form onSubmit={submit}>
+              <div style={{background:'#f8fafc',borderRadius:10,padding:'1rem',marginBottom:'1.25rem',border:'1px solid #e2e8f0'}}>
+                <div style={{fontSize:'.78rem',fontWeight:700,color:'#64748b',marginBottom:'.75rem',textTransform:'uppercase',letterSpacing:'.05em'}}>Organization Details</div>
+                <div className="fg">
+                  <label>Organization Name</label>
+                  <input value={form.orgName} onChange={e=>update('orgName',e.target.value)} placeholder="Sunrise Industries Ethiopia" required/>
+                </div>
+                <div className="fg">
+                  <label>Organization Slug <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.75rem'}}>(URL-safe identifier, auto-generated)</span></label>
+                  <input value={form.orgSlug} onChange={e=>update('orgSlug',e.target.value)} placeholder="sunrise-industries-ethiopia" required pattern="[a-z0-9-]+" title="Lowercase letters, numbers, hyphens only"/>
+                </div>
+                <div className="fr">
+                  <div className="fg">
+                    <label>Industry Sector</label>
+                    <select value={form.industry} onChange={e=>update('industry',e.target.value)}>
+                      <option value="">Select industry...</option>
+                      {['Manufacturing','Construction','Healthcare','Utilities & Energy','Real Estate','Transportation & Logistics','Hospitality','Telecommunications','Mining','Agriculture','Government','Education','Other'].map(i=><option key={i} value={i}>{i}</option>)}
+                    </select>
+                  </div>
+                  <div className="fg">
+                    <label>Company Size</label>
+                    <select value={form.employeeCount} onChange={e=>update('employeeCount',e.target.value)}>
+                      <option value="">Select size...</option>
+                      {['1-10','11-50','51-200','201-500','500+'].map(s=><option key={s} value={s}>{s} employees</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="fr">
+                  <div className="fg">
+                    <label>Business Reg. / Trade License No. <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.72rem'}}>(for verification)</span></label>
+                    <input value={form.businessRegNumber} onChange={e=>update('businessRegNumber',e.target.value)} placeholder="e.g. AA/12345/2015"/>
+                  </div>
+                  <div className="fg">
+                    <label>Phone Number</label>
+                    <input value={form.phone} onChange={e=>update('phone',e.target.value)} placeholder="+251911123456"/>
+                  </div>
+                </div>
+                <div className="fr">
+                  <div className="fg">
+                    <label>Website <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.72rem'}}>(optional)</span></label>
+                    <input value={form.website} onChange={e=>update('website',e.target.value)} placeholder="https://yourcompany.com"/>
+                  </div>
+                  <div className="fg">
+                    <label>Address / City</label>
+                    <input value={form.address} onChange={e=>update('address',e.target.value)} placeholder="Addis Ababa, Ethiopia"/>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{background:'#f8fafc',borderRadius:10,padding:'1rem',marginBottom:'1.25rem',border:'1px solid #e2e8f0'}}>
+                <div style={{fontSize:'.78rem',fontWeight:700,color:'#64748b',marginBottom:'.75rem',textTransform:'uppercase',letterSpacing:'.05em'}}>Your Account (OrgAdmin)</div>
+                <div className="fg">
+                  <label>Full Name</label>
+                  <input value={form.fullName} onChange={e=>update('fullName',e.target.value)} placeholder="Abebe Girma" required/>
+                </div>
+                <div className="fg">
+                  <label>Email Address <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.75rem'}}>(your real Gmail or work email)</span></label>
+                  <input type="email" value={form.email} onChange={e=>update('email',e.target.value)} placeholder="you@gmail.com" required/>
+                </div>
+                <div className="fr">
+                  <div className="fg">
+                    <label>Password <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.72rem'}}>(min 10 chars)</span></label>
+                    <input type="password" value={form.password} onChange={e=>update('password',e.target.value)} placeholder="Min 10 chars, Aa1@..." required/>
+                  </div>
+                  <div className="fg">
+                    <label>Confirm Password</label>
+                    <input type="password" value={form.confirmPassword} onChange={e=>update('confirmPassword',e.target.value)} placeholder="Repeat password" required/>
+                  </div>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:6,background:'#fef9c3',border:'1px solid #fde68a',borderRadius:8,padding:'8px 12px',fontSize:'.78rem',color:'#92400e'}}>
+                  <span>&#9888;</span>
+                  Password must contain: uppercase, lowercase, number, and special character (@$!%*?&amp;^#)
+                </div>
+              </div>
+
+              {error&&<div className="err">{error}</div>}
+              <button type="submit" className="btn btn-primary" style={{width:'100%',padding:'.8rem',fontSize:'1rem',opacity:loading?.7:1}} disabled={loading}>
+                {loading?'Creating Organization...':'Create Organization & Register'}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LOGIN PAGE
+───────────────────────────────────────────────────────────────── */
+function Login({navigate}){
+  const[email,setEmail]=useState('');
+  const[password,setPassword]=useState('');
+  const[error,setError]=useState('');
+  const[loading,setLoading]=useState(false);
+
+  async function handleLogin(e){
+    e.preventDefault();setLoading(true);setError('');
+    try{
+      const res=await fetch(ID+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+      const data=await res.json();
+      if(!data.success){setError(data.message||'Login failed. Check your email and password.');return;}
+      auth.set(data.data.tokens,data.data.user);
+      navigate('/dashboard');
+    }catch{setError('Cannot connect to Identity Service (port 4001). Make sure the service is running.');}
+    finally{setLoading(false);}
+  }
+
+  return(
+    <div style={{minHeight:'100vh',background:'#f8fafc',display:'flex',flexDirection:'column'}}>
+      <div style={{background:'#0f172a',padding:'1rem 1.5rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={()=>navigate('/')}>
+          <div style={{width:32,height:32,background:'linear-gradient(135deg,#1e40af,#0d9488)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,color:'#fff',fontSize:14}}>C</div>
+          <span style={{fontWeight:800,color:'#fff',fontSize:'.95rem'}}>CAFSO Network</span>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>navigate('/register')}>No account? Register</button>
+      </div>
+
+      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:'2rem 1rem'}}>
+        <div style={{width:'100%',maxWidth:420}}>
+          <div style={{textAlign:'center',marginBottom:'2rem'}}>
+            <div style={{width:60,height:60,background:'linear-gradient(135deg,#1e40af,#0d9488)',borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px',fontWeight:900,color:'#fff',fontSize:24}}>C</div>
+            <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#0f172a',marginBottom:4}}>Welcome back</h1>
+            <p style={{color:'#64748b',fontSize:'.9rem'}}>Sign in to your CAFSO workspace</p>
+          </div>
+
+          <div className="card" style={{padding:'2rem'}}>
+            <form onSubmit={handleLogin}>
+              <div className="fg">
+                <label>Email Address</label>
+                <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@gmail.com" required autoFocus/>
+              </div>
+              <div className="fg">
+                <label>Password</label>
+                <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Your password" required/>
+              </div>
+              {error&&<div className="err">{error}</div>}
+              <button type="submit" className="btn btn-primary" style={{width:'100%',padding:'.8rem',fontSize:'1rem',opacity:loading?.7:1}} disabled={loading}>
+                {loading?'Signing in...':'Sign In'}
+              </button>
+            </form>
+
+            <hr className="divider"/>
+            <div style={{background:'#f8fafc',borderRadius:10,padding:'1rem',border:'1px solid #e2e8f0'}}>
+              <div style={{fontSize:'.78rem',fontWeight:700,color:'#64748b',marginBottom:8}}>New to CAFSO?</div>
+              <p style={{fontSize:'.8rem',color:'#64748b',lineHeight:1.55,marginBottom:10}}>
+                If your organization is already registered, ask your OrgAdmin to invite you via email. You will receive a link to set your password and join.
+              </p>
+              <button className="btn btn-white btn-sm" style={{width:'100%'}} onClick={()=>navigate('/register')}>
+                Register a new organization
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ROLE DASHBOARDS (imported from previous implementation)
+───────────────────────────────────────────────────────────────── */
+function PTag({p}){
+  const c={CRITICAL:'#dc2626',HIGH:'#d97706',MEDIUM:'#1e40af',LOW:'#16a34a'};
+  const bg={CRITICAL:'#fee2e2',HIGH:'#fef3c7',MEDIUM:'#dbeafe',LOW:'#dcfce7'};
+  return<span style={{background:bg[p]||'#dbeafe',color:c[p]||'#1e40af',padding:'2px 8px',borderRadius:99,fontSize:'.71rem',fontWeight:700}}>{p||'MEDIUM'}</span>;
+}
+
+function JCard({job,children}){
+  const bc={CRITICAL:'#dc2626',HIGH:'#f59e0b',MEDIUM:'#1e40af',LOW:'#22c55e'};
+  return(
+    <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:10,padding:'1rem',marginBottom:'.7rem',borderLeft:'4px solid '+(bc[job.priority]||'#1e40af')}}>
+      {children}
+    </div>
+  );
+}
+
+/* ── Admin Dashboard ── */
+function AdminDash({user,navigate}){
+  const[st,setSt]=useState({4001:'...',4002:'...',4003:'...',4004:'...',4005:'...',4006:'...',4007:'...'});
+  const[members,setMembers]=useState([]);
+  const[inviteForm,setInviteForm]=useState({email:'',role:'TECHNICIAN'});
+  const[inviteMsg,setInviteMsg]=useState('');
+  const[inviteErr,setInviteErr]=useState('');
+  const[showInvite,setShowInvite]=useState(false);
+  const m=user?.memberships?.[0];
+
+  const svcNames={4001:'Identity & Tenant',4002:'Asset & Maintenance',4003:'Work Order & Dispatch',4004:'Field Execution',4005:'Inventory & Procurement',4006:'Contract & SLA',4007:'AI & Analytics'};
+
+  const check=useCallback(()=>{
+    [4001,4002,4003,4004,4005,4006,4007].forEach(p=>{
+      const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),2500);
+      fetch('http://localhost:'+p+(p===4007?'/health':'/api/health/live'),{signal:ctrl.signal})
+        .then(r=>setSt(s=>({...s,[p]:r.ok?'Running':'Error'}))).catch(()=>setSt(s=>({...s,[p]:'Offline'})));
+    });
+  },[]);
+
+  useEffect(()=>{check();const iv=setInterval(check,10000);return()=>clearInterval(iv);},[]);
+
+  async function invite(e){
+    e.preventDefault();setInviteErr('');setInviteMsg('');
+    if(!m?.orgId){setInviteErr('No organization found');return;}
+    try{
+      const res=await fetch(ID+'/api/v1/organizations/'+m.orgId+'/invitations',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+auth.getToken(),'X-Org-Id':m.orgId},
+        body:JSON.stringify({email:inviteForm.email,role:inviteForm.role})
+      });
+      const data=await res.json();
+      if(!data.success){setInviteErr(data.message||'Invite failed');return;}
+      setInviteMsg('Invitation sent to '+inviteForm.email+' as '+inviteForm.role+'.');
+      setInviteForm({email:'',role:'TECHNICIAN'});
+      setTimeout(()=>setShowInvite(false),2000);
+    }catch{setInviteErr('Cannot connect to server.');}
+  }
+
+  const roles=['ORG_ADMIN','ASSET_MANAGER','MAINTENANCE_MANAGER','DISPATCHER','TECHNICIAN','INVENTORY_MANAGER','SUPERVISOR','REQUESTER'];
+
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'1.5rem'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem',flexWrap:'wrap',gap:12}}>
+          <div>
+            <h1 style={{fontSize:'1.3rem',fontWeight:800,color:'#0f172a'}}>Admin Dashboard</h1>
+            <p style={{color:'#64748b',fontSize:'.85rem',marginTop:2}}>Organization overview &amp; team management</p>
+          </div>
+          <button className="btn btn-primary" onClick={()=>setShowInvite(!showInvite)}>+ Invite Team Member</button>
+        </div>
+
+        {showInvite&&(
+          <div className="card" style={{marginBottom:'1.25rem',padding:'1.5rem',border:'2px solid #1e40af'}}>
+            <div style={{fontWeight:700,marginBottom:'1rem',color:'#0f172a',fontSize:'.95rem'}}>Invite Team Member</div>
+            <form onSubmit={invite}>
+              <div className="fr">
+                <div className="fg">
+                  <label>Email Address <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.72rem'}}>(their Gmail or work email)</span></label>
+                  <input type="email" value={inviteForm.email} onChange={e=>setInviteForm({...inviteForm,email:e.target.value})} placeholder="colleague@gmail.com" required/>
+                </div>
+                <div className="fg">
+                  <label>Assign Role</label>
+                  <select value={inviteForm.role} onChange={e=>setInviteForm({...inviteForm,role:e.target.value})}>
+                    {roles.filter(r=>r!=='ORG_ADMIN').map(r=>(
+                      <option key={r} value={r}>{r.replace(/_/g,' ')}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:8,padding:'10px 12px',fontSize:'.78rem',color:'#0369a1',marginBottom:'1rem'}}>
+                The invited person will receive a link to set their password and join your organization with the selected role.
+              </div>
+              {inviteErr&&<div className="err">{inviteErr}</div>}
+              {inviteMsg&&<div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',color:'#166534',padding:'10px 12px',borderRadius:8,fontSize:'.85rem',marginBottom:'1rem'}}>{inviteMsg}</div>}
+              <div style={{display:'flex',gap:8}}>
+                <button type="submit" className="btn btn-primary">Send Invitation</button>
+                <button type="button" className="btn btn-white" onClick={()=>{setShowInvite(false);setInviteErr('');setInviteMsg('');}}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {m?.orgStatus==='PENDING_VERIFICATION'&&(
+          <div style={{background:'#fef9c3',border:'1px solid #fde68a',borderRadius:12,padding:'1rem 1.25rem',marginBottom:'1.25rem',display:'flex',alignItems:'flex-start',gap:12}}>
+            <span style={{fontSize:20,flexShrink:0}}>&#9203;</span>
+            <div>
+              <div style={{fontWeight:700,color:'#92400e',marginBottom:3}}>Organization Pending Verification</div>
+              <div style={{fontSize:'.85rem',color:'#92400e'}}>Your organization is under review by a Platform Administrator. You can still invite team members and explore the system while you wait.</div>
+            </div>
+          </div>
+        )}
+        <div className="grid4" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Organization" value={m?.orgName||'—'} color="#1e40af" bg="#dbeafe" sub="Active"/>
+          <Stat label="Your Role" value="ORG ADMIN" color="#7c3aed" bg="#ede9fe" sub="Full access"/>
+          <Stat label="Services Up" value={Object.values(st).filter(x=>x==='Running').length+'/7'} color="#16a34a" bg="#dcfce7" sub="Microservices"/>
+          <Stat label="Org ID" value={(m?.orgId||'').slice(0,8)+'...'} color="#64748b" bg="#f1f5f9" sub="Tenant identifier"/>
+        </div>
+              <button className="btn btn-white btn-sm" onClick={check}>Refresh</button>
+            </div>
+            <table><thead><tr><th>Service</th><th>Port</th><th>Status</th><th>API</th></tr></thead><tbody>
+              {[4001,4002,4003,4004,4005,4006,4007].map(p=>(
+                <tr key={p}>
+                  <td style={{fontSize:'.82rem'}}>{svcNames[p]}</td>
+                  <td style={{fontFamily:'monospace',color:'#94a3b8',fontSize:'.78rem'}}>:{p}</td>
+                  <td><span className={'tag tag-'+(st[p]==='Running'?'green':st[p]==='Offline'?'gray':'yellow')} style={{fontSize:'.68rem'}}>{st[p]}</span></td>
+                  <td><a href={'http://localhost:'+p+'/api/docs'} target="_blank" style={{color:'#1e40af',fontSize:'.75rem'}}>Docs</a></td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+
+          <div className="card" style={{padding:'1.25rem'}}>
+            <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>Role Guide — Who to Invite</div>
+            {[
+              {role:'ASSET_MANAGER',icon:'🏭',desc:'Registers and manages physical assets'},
+              {role:'MAINTENANCE_MANAGER',icon:'🔧',desc:'Approves maintenance plans'},
+              {role:'DISPATCHER',icon:'📡',desc:'Assigns work orders to technicians'},
+              {role:'TECHNICIAN',icon:'👷',desc:'Executes field jobs'},
+              {role:'INVENTORY_MANAGER',icon:'📦',desc:'Manages spare parts stock'},
+              {role:'SUPERVISOR',icon:'🔍',desc:'Verifies completed work'},
+              {role:'REQUESTER',icon:'📋',desc:'Reports faults and tracks requests'},
+            ].map(r=>(
+              <div key={r.role} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,padding:'6px 0',borderBottom:'1px solid #f1f5f9'}}>
+                <span style={{fontSize:16,flexShrink:0}}>{r.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:'.8rem',fontWeight:600,color:'#0f172a'}}>{r.role.replace(/_/g,' ')}</div>
+                  <div style={{fontSize:'.73rem',color:'#94a3b8'}}>{r.desc}</div>
+                </div>
+                <button className="btn btn-primary btn-sm" style={{fontSize:'.68rem',padding:'2px 8px'}} onClick={()=>{setInviteForm(f=>({...f,role:r.role}));setShowInvite(true);}}>Invite</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Dispatcher Dashboard ── */
+function DispatcherDash({user,navigate}){
+  const[sel,setSel]=useState(null);
+  const wos=[
+    {id:'WO-001',asset:'Pump Unit A-12',priority:'CRITICAL',status:'READY_FOR_DISPATCH',site:'Plant A',skills:['MECHANICAL']},
+    {id:'WO-002',asset:'HVAC Rooftop B',priority:'HIGH',status:'READY_FOR_DISPATCH',site:'Building B',skills:['HVAC']},
+    {id:'WO-003',asset:'Generator G-3',priority:'MEDIUM',status:'ASSIGNED',site:'Warehouse',skills:['ELECTRICAL']},
+    {id:'WO-004',asset:'Fire Panel FP-1',priority:'HIGH',status:'READY_FOR_DISPATCH',site:'HQ',skills:['ELECTRICAL']},
+  ];
+  const techs=[
+    {name:'Abebe Kebede',skills:['MECHANICAL','ELECTRICAL'],status:'AVAILABLE',jobs:0},
+    {name:'Tigist Alemu',skills:['HVAC','MECHANICAL'],status:'AVAILABLE',jobs:1},
+    {name:'Dawit Haile',skills:['ELECTRICAL'],status:'BUSY',jobs:2},
+  ];
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'1.5rem'}}>
+        <h1 style={{fontSize:'1.3rem',fontWeight:800,marginBottom:4,color:'#0f172a'}}>Dispatch Center</h1>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Manage work order assignments and technician dispatch</p>
+        <div className="grid4" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Ready to Dispatch" value={wos.filter(w=>w.status==='READY_FOR_DISPATCH').length} color="#dc2626" bg="#fee2e2" sub="Awaiting assignment"/>
+          <Stat label="In Progress" value="2" color="#d97706" bg="#fef3c7" sub="Active jobs"/>
+          <Stat label="Available Techs" value={techs.filter(t=>t.status==='AVAILABLE').length} color="#16a34a" bg="#dcfce7" sub="Ready to assign"/>
+          <Stat label="Total Open" value={wos.length} color="#1e40af" bg="#dbeafe" sub="All statuses"/>
+        </div>
+        <div className="grid2">
+          <div className="card" style={{padding:'1.25rem'}}>
+            <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>Work Orders</div>
+            {wos.map(wo=>(
+              <JCard key={wo.id} job={wo}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:'.875rem'}}>{wo.id} — {wo.asset}</div>
+                    <div style={{fontSize:'.76rem',color:'#64748b',marginTop:2}}>{wo.site} &bull; {wo.skills.join(', ')}</div>
+                  </div>
+                  <PTag p={wo.priority}/>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span className={'tag tag-'+(wo.status==='ASSIGNED'?'blue':'orange')} style={{fontSize:'.68rem'}}>{wo.status.replace(/_/g,' ')}</span>
+                  {wo.status==='READY_FOR_DISPATCH'&&<button className="btn btn-primary btn-sm" style={{fontSize:'.72rem'}} onClick={()=>setSel(sel===wo.id?null:wo.id)}>Assign</button>}
+                </div>
+                {sel===wo.id&&(
+                  <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid #e2e8f0'}}>
+                    <div style={{fontSize:'.78rem',fontWeight:600,marginBottom:6}}>Select technician:</div>
+                    {techs.filter(t=>t.status==='AVAILABLE').map(t=>(
+                      <button key={t.name} className="btn btn-white btn-sm" style={{marginRight:6,marginBottom:4}} onClick={()=>{alert('Assigned '+wo.id+' to '+t.name+'!\nAPI: POST /api/v1/work-orders/{id}/assign');setSel(null);}}>
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </JCard>
+            ))}
+          </div>
+          <div className="card" style={{padding:'1.25rem'}}>
+            <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>Technician Availability</div>
+            <table><thead><tr><th>Name</th><th>Skills</th><th>Status</th><th>Jobs</th></tr></thead><tbody>
+              {techs.map(t=>(
+                <tr key={t.name}>
+                  <td style={{fontWeight:600,fontSize:'.82rem'}}>{t.name}</td>
+                  <td>{t.skills.map(s=><span key={s} className="tag tag-blue" style={{marginRight:3,fontSize:'.67rem'}}>{s}</span>)}</td>
+                  <td><span className={'tag tag-'+(t.status==='AVAILABLE'?'green':'yellow')} style={{fontSize:'.68rem'}}>{t.status}</span></td>
+                  <td style={{textAlign:'center',fontWeight:700}}>{t.jobs}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Technician Dashboard ── */
+function TechnicianDash({user,navigate}){
+  const[active,setActive]=useState(null);
+  const jobs=[
+    {id:'WO-001',asset:'Pump Unit A-12',priority:'CRITICAL',status:'ACCEPTED',site:'Plant A',time:'Today 10:00 AM',desc:'Pump bearing failure — urgent repair required'},
+    {id:'WO-008',asset:'HVAC Unit H-5',priority:'MEDIUM',status:'IN_PROGRESS',site:'Building B Roof',time:'Today 2:00 PM',desc:'Quarterly HVAC inspection and filter replacement'},
+  ];
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:900,margin:'0 auto',padding:'1.5rem'}}>
+        <h1 style={{fontSize:'1.3rem',fontWeight:800,marginBottom:4,color:'#0f172a'}}>My Jobs</h1>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Your assigned work orders</p>
+        <div className="grid3" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Assigned" value={jobs.length} color="#1e40af" bg="#dbeafe" sub="Total"/>
+          <Stat label="In Progress" value={jobs.filter(j=>j.status==='IN_PROGRESS').length} color="#d97706" bg="#fef3c7" sub="Working now"/>
+          <Stat label="Completed Today" value="3" color="#16a34a" bg="#dcfce7" sub="Closed"/>
+        </div>
+        {jobs.map(job=>(
+          <JCard key={job.id} job={job}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+              <div>
+                <div style={{fontWeight:700}}>{job.id} — {job.asset}</div>
+                <div style={{fontSize:'.82rem',color:'#374151',marginTop:3}}>{job.desc}</div>
+                <div style={{fontSize:'.74rem',color:'#94a3b8',marginTop:3}}>{job.site} &bull; {job.time}</div>
+              </div>
+              <div style={{textAlign:'right',flexShrink:0,marginLeft:12}}>
+                <PTag p={job.priority}/>
+                <div style={{marginTop:4}}><span className={'tag tag-'+(job.status==='IN_PROGRESS'?'yellow':'blue')} style={{fontSize:'.68rem'}}>{job.status.replace(/_/g,' ')}</span></div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+              {job.status==='ACCEPTED'&&<><button className="btn btn-sm" style={{background:'#16a34a',color:'#fff',border:'none'}} onClick={()=>alert('Job started!')}>Start Job</button><button className="btn btn-sm" style={{background:'#dc2626',color:'#fff',border:'none'}} onClick={()=>alert('Rejected.')}>Reject</button></>}
+              {job.status==='IN_PROGRESS'&&<button className="btn btn-primary btn-sm" onClick={()=>setActive(active===job.id?null:job.id)}>{active===job.id?'Hide':'Record Work'}</button>}
+            </div>
+            {active===job.id&&(
+              <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid #e2e8f0'}}>
+                <div className="fr" style={{marginBottom:10}}>
+                  <div className="fg"><label>Root Cause</label><input placeholder="Bearing wear..."/></div>
+                  <div className="fg"><label>Parts Used</label><input placeholder="BRG-001 x2"/></div>
+                </div>
+                <div className="fg"><label>Work Performed</label><textarea rows={2} placeholder="Describe work done..." style={{resize:'vertical'}}/></div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <button className="btn btn-white btn-sm">Upload Photo Evidence</button>
+                  <button className="btn btn-sm" style={{background:'#16a34a',color:'#fff',border:'none'}} onClick={()=>alert('Submitted for verification!')}>Submit for Verification</button>
+                </div>
+              </div>
+            )}
+          </JCard>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Supervisor Dashboard ── */
+function SupervisorDash({user,navigate}){
+  const queue=[
+    {id:'WO-099',asset:'Boiler B-2',tech:'Abebe Kebede',ago:'2h ago',priority:'HIGH',evidence:true,status:'PENDING_REVIEW'},
+    {id:'WO-097',asset:'Pump P-5',tech:'Tigist Alemu',ago:'4h ago',priority:'MEDIUM',evidence:true,status:'PENDING_REVIEW'},
+    {id:'WO-095',asset:'Generator G-1',tech:'Dawit Haile',ago:'1d ago',priority:'CRITICAL',evidence:false,status:'RETURNED'},
+  ];
+  const breaches=[
+    {id:'WO-088',asset:'Chiller C-1',priority:'CRITICAL',ago:'6h ago',type:'Resolution SLA'},
+    {id:'WO-085',asset:'AHU-3',priority:'HIGH',ago:'2h ago',type:'Response SLA'},
+  ];
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'1.5rem'}}>
+        <h1 style={{fontSize:'1.3rem',fontWeight:800,marginBottom:4,color:'#0f172a'}}>Supervisor Dashboard</h1>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Verify completed work and monitor SLA compliance</p>
+        <div className="grid4" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Pending Verification" value={queue.filter(q=>q.status==='PENDING_REVIEW').length} color="#d97706" bg="#fef3c7" sub="Awaiting review"/>
+          <Stat label="SLA Breaches" value={breaches.length} color="#dc2626" bg="#fee2e2" sub="Active"/>
+          <Stat label="Verified Today" value="8" color="#16a34a" bg="#dcfce7" sub="Approved"/>
+          <Stat label="SLA Compliance" value="87%" color="#1e40af" bg="#dbeafe" sub="This month"/>
+        </div>
+        <div className="grid2">
+          <div className="card" style={{padding:'1.25rem'}}>
+            <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>Verification Queue</div>
+            {queue.map(item=>(
+              <div key={item.id} style={{padding:'.9rem',border:'1px solid #e2e8f0',borderRadius:10,marginBottom:'.7rem',borderLeft:'4px solid '+(item.status==='RETURNED'?'#f59e0b':'#1e40af')}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                  <div><div style={{fontWeight:700,fontSize:'.875rem'}}>{item.id} — {item.asset}</div><div style={{fontSize:'.76rem',color:'#94a3b8',marginTop:2}}>Tech: {item.tech} &bull; {item.ago}</div></div>
+                  <PTag p={item.priority}/>
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}>
+                  {item.evidence?<span className="tag tag-green" style={{fontSize:'.68rem'}}>Evidence attached</span>:<span className="tag tag-red" style={{fontSize:'.68rem'}}>No evidence</span>}
+                  <span className={'tag tag-'+(item.status==='RETURNED'?'orange':'yellow')} style={{fontSize:'.68rem'}}>{item.status.replace(/_/g,' ')}</span>
+                </div>
+                <div style={{display:'flex',gap:7,marginTop:9}}>
+                  <button className="btn btn-sm" style={{background:'#16a34a',color:'#fff',border:'none'}} onClick={()=>alert('Verified!')}>Approve</button>
+                  <button className="btn btn-white btn-sm" onClick={()=>alert('Returned for correction.')}>Return</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card" style={{padding:'1.25rem'}}>
+            <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>SLA Breaches</div>
+            {breaches.map(b=>(
+              <div key={b.id} style={{padding:'.9rem',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,marginBottom:'.7rem'}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                  <div style={{fontWeight:700,fontSize:'.875rem'}}>{b.id} — {b.asset}</div><PTag p={b.priority}/>
+                </div>
+                <div style={{fontSize:'.77rem',color:'#991b1b'}}>{b.type} breached {b.ago}</div>
+                <button className="btn btn-sm" style={{background:'#dc2626',color:'#fff',border:'none',marginTop:8}} onClick={()=>alert('Escalated!')}>Escalate</button>
+              </div>
+            ))}
+            <div style={{marginTop:'1rem',padding:'1rem',background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0'}}>
+              <div style={{fontSize:'.82rem',fontWeight:700,marginBottom:8,color:'#0f172a'}}>SLA Summary</div>
+              <div style={{display:'flex',gap:'2rem'}}>
+                <div><div style={{fontSize:'1.5rem',fontWeight:800,color:'#16a34a'}}>87%</div><div style={{fontSize:'.72rem',color:'#64748b'}}>Response SLA</div></div>
+                <div><div style={{fontSize:'1.5rem',fontWeight:800,color:'#d97706'}}>74%</div><div style={{fontSize:'.72rem',color:'#64748b'}}>Resolution SLA</div></div>
+                <div><div style={{fontSize:'1.5rem',fontWeight:800,color:'#1e40af'}}>4.2h</div><div style={{fontSize:'.72rem',color:'#64748b'}}>Avg MTTR</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Asset Manager Dashboard ── */
+function AssetManagerDash({user,navigate}){
+  const[showForm,setShowForm]=useState(false);
+  const[form,setForm]=useState({name:'',category:'MECHANICAL',manufacturer:'',model:'',serialNumber:'',assetCode:''});
+  const[assets,setAssets]=useState([]);
+  const[loading,setLoading]=useState(false);
+  const[msg,setMsg]=useState('');
+  const[err,setErr]=useState('');
+
+  useEffect(()=>{
+    fetch(ASSET+'/api/v1/assets',{headers:{'Authorization':'Bearer '+auth.getToken(),'X-Org-Id':auth.getOrgId()}})
+      .then(r=>r.json()).then(d=>{if(d.data)setAssets(d.data);}).catch(()=>{});
+  },[]);
+
+  const rc=r=>r>=75?'#dc2626':r>=50?'#d97706':r>=25?'#1e40af':'#16a34a';
+  const rl=r=>r>=75?'CRITICAL':r>=50?'HIGH':r>=25?'MEDIUM':'LOW';
+
+  async function createAsset(e){
+    e.preventDefault();setErr('');setMsg('');setLoading(true);
+    try{
+      const res=await fetch(ASSET+'/api/v1/assets',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+auth.getToken(),'X-Org-Id':auth.getOrgId()},body:JSON.stringify(form)});
+      const data=await res.json();
+      if(!data.success&&!data.id){setErr(data.message||'Failed to create asset');return;}
+      setMsg('Asset registered successfully!');
+      setAssets(a=>[data,...a]);
+      setForm({name:'',category:'MECHANICAL',manufacturer:'',model:'',serialNumber:'',assetCode:''});
+      setShowForm(false);
+    }catch{setErr('Cannot connect to Asset Service.');}
+    finally{setLoading(false);}
+  }
+
+  const sampleRisk=r=>{const scores={EXCELLENT:10,GOOD:25,FAIR:55,POOR:78,CRITICAL:92};return scores[r]||40;};
+
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'1.5rem'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem',flexWrap:'wrap',gap:12}}>
+          <div><h1 style={{fontSize:'1.3rem',fontWeight:800,color:'#0f172a'}}>Asset Management</h1><p style={{color:'#64748b',fontSize:'.85rem',marginTop:2}}>Register and manage your organization assets</p></div>
+          <button className="btn btn-primary" onClick={()=>setShowForm(!showForm)}>+ Register Asset</button>
+        </div>
+        {msg&&<div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',color:'#166534',padding:'10px 14px',borderRadius:8,marginBottom:'1rem',fontSize:'.85rem'}}>{msg}</div>}
+        {showForm&&(
+          <div className="card" style={{marginBottom:'1.25rem',padding:'1.5rem',border:'2px solid #1e40af'}}>
+            <div style={{fontWeight:700,marginBottom:'1rem',color:'#0f172a'}}>Register New Asset</div>
+            <form onSubmit={createAsset}>
+              <div className="fr" style={{marginBottom:10}}>
+                <div className="fg"><label>Asset Code <span style={{color:'#94a3b8',fontWeight:400,fontSize:'.72rem'}}>(unique in org)</span></label><input value={form.assetCode} onChange={e=>setForm({...form,assetCode:e.target.value})} placeholder="AST-2024-001" required/></div>
+                <div className="fg"><label>Asset Name</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Pump Unit A-12" required/></div>
+              </div>
+              <div className="fr" style={{marginBottom:10}}>
+                <div className="fg"><label>Category</label>
+                  <select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>
+                    {['MECHANICAL','HVAC','ELECTRICAL','PLUMBING','STRUCTURAL','IT_INFRASTRUCTURE','VEHICLES','PRODUCTION_EQUIPMENT','SAFETY_EQUIPMENT','OFFICE_EQUIPMENT','OTHER'].map(c=><option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="fg"><label>Manufacturer</label><input value={form.manufacturer} onChange={e=>setForm({...form,manufacturer:e.target.value})} placeholder="Grundfos"/></div>
+              </div>
+              <div className="fr" style={{marginBottom:12}}>
+                <div className="fg"><label>Model</label><input value={form.model} onChange={e=>setForm({...form,model:e.target.value})} placeholder="CM5-5"/></div>
+                <div className="fg"><label>Serial Number</label><input value={form.serialNumber} onChange={e=>setForm({...form,serialNumber:e.target.value})} placeholder="SN-2024-001"/></div>
+              </div>
+              {err&&<div className="err">{err}</div>}
+              <div style={{display:'flex',gap:8}}>
+                <button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Registering...':'Register Asset'}</button>
+                <button type="button" className="btn btn-white" onClick={()=>setShowForm(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        )}
+        <div className="grid4" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Total Assets" value={assets.length||'—'} color="#1e40af" bg="#dbeafe" sub="Registered"/>
+          <Stat label="Critical Risk" value={assets.filter(a=>sampleRisk(a.condition)>=75).length||'—'} color="#dc2626" bg="#fee2e2" sub="Score above 75"/>
+          <Stat label="Poor Condition" value={assets.filter(a=>a.condition==='POOR'||a.condition==='CRITICAL').length||'—'} color="#d97706" bg="#fef3c7" sub="Needs attention"/>
+          <Stat label="Active Plans" value="—" color="#16a34a" bg="#dcfce7" sub="PM schedules"/>
+        </div>
+        <div className="card" style={{padding:'1.25rem'}}>
+          <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>Asset Registry</div>
+          {assets.length===0?(
+            <div style={{textAlign:'center',padding:'2rem',color:'#94a3b8'}}>
+              <div style={{fontSize:32,marginBottom:8}}>🏭</div>
+              <div style={{fontWeight:600}}>No assets registered yet</div>
+              <div style={{fontSize:'.85rem',marginTop:4}}>Click "+ Register Asset" to add your first asset</div>
+            </div>
+          ):(
+            <table><thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Condition</th><th>Risk</th><th>Status</th></tr></thead><tbody>
+              {assets.map(a=>{
+                const risk=sampleRisk(a.condition);
+                return(
+                  <tr key={a.id}>
+                    <td style={{fontFamily:'monospace',fontWeight:600,fontSize:'.8rem'}}>{a.assetCode}</td>
+                    <td style={{fontWeight:500,fontSize:'.85rem'}}>{a.name}</td>
+                    <td><span className="tag tag-blue" style={{fontSize:'.68rem'}}>{a.category}</span></td>
+                    <td><span className={'tag tag-'+(a.condition==='EXCELLENT'||a.condition==='GOOD'?'green':a.condition==='FAIR'?'yellow':'red')} style={{fontSize:'.68rem'}}>{a.condition||'GOOD'}</span></td>
+                    <td>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:50,height:5,background:'#e2e8f0',borderRadius:3}}><div style={{width:risk+'%',height:'100%',background:rc(risk),borderRadius:3}}/></div>
+                        <span style={{fontWeight:700,color:rc(risk),fontSize:'.78rem'}}>{risk}</span>
+                      </div>
+                    </td>
+                    <td><span className={'tag tag-'+(a.status==='OPERATIONAL'?'green':a.status==='RETIRED'?'gray':'yellow')} style={{fontSize:'.68rem'}}>{a.status||'OPERATIONAL'}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody></table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Inventory Manager Dashboard ── */
+function InventoryDash({user,navigate}){
+  const[showForm,setShowForm]=useState(false);
+  const items=[
+    {sku:'BRG-001',name:'Pump Bearing 6205',onHand:12,reserved:5,reorder:10,unit:'PCS',st:'LOW'},
+    {sku:'FILT-HVAC-12',name:'HVAC Air Filter',onHand:45,reserved:8,reorder:20,unit:'PCS',st:'OK'},
+    {sku:'SEAL-003',name:'Mechanical Seal Kit',onHand:3,reserved:3,reorder:5,unit:'KIT',st:'OUT'},
+    {sku:'OIL-HYD-20',name:'Hydraulic Oil 20L',onHand:28,reserved:0,reorder:10,unit:'CAN',st:'OK'},
+  ];
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'1.5rem'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem',flexWrap:'wrap',gap:12}}>
+          <div><h1 style={{fontSize:'1.3rem',fontWeight:800,color:'#0f172a'}}>Inventory Management</h1><p style={{color:'#64748b',fontSize:'.85rem',marginTop:2}}>Stock levels, reservations and procurement</p></div>
+          <button className="btn btn-primary" onClick={()=>setShowForm(!showForm)}>+ Add Item</button>
+        </div>
+        {showForm&&(
+          <div className="card" style={{marginBottom:'1.25rem',padding:'1.5rem',border:'2px solid #1e40af'}}>
+            <div style={{fontWeight:700,marginBottom:'1rem',color:'#0f172a'}}>Add Inventory Item</div>
+            <div className="fr" style={{marginBottom:10}}><div className="fg"><label>SKU</label><input placeholder="BRG-001"/></div><div className="fg"><label>Item Name</label><input placeholder="Pump Bearing 6205"/></div></div>
+            <div className="fr" style={{marginBottom:12}}><div className="fg"><label>Min Stock Level</label><input type="number" placeholder="10"/></div><div className="fg"><label>Unit</label><select><option>PCS</option><option>KIT</option><option>CAN</option><option>BOX</option></select></div></div>
+            <div style={{display:'flex',gap:8}}><button className="btn btn-primary" onClick={()=>alert('Item added!')}>Add Item</button><button className="btn btn-white" onClick={()=>setShowForm(false)}>Cancel</button></div>
+          </div>
+        )}
+        <div className="grid4" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Total SKUs" value={items.length} color="#1e40af" bg="#dbeafe" sub="Catalog items"/>
+          <Stat label="Low Stock" value={items.filter(i=>i.st==='LOW').length} color="#d97706" bg="#fef3c7" sub="Below reorder point"/>
+          <Stat label="Out of Stock" value={items.filter(i=>i.st==='OUT').length} color="#dc2626" bg="#fee2e2" sub="Zero available"/>
+          <Stat label="Reserved" value={items.reduce((a,i)=>a+i.reserved,0)} color="#7c3aed" bg="#ede9fe" sub="Parts on hold"/>
+        </div>
+        <div className="card" style={{padding:'1.25rem'}}>
+          <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>Stock Levels</div>
+          <table><thead><tr><th>SKU</th><th>Item</th><th>On Hand</th><th>Reserved</th><th>Available</th><th>Reorder At</th><th>Unit</th><th>Status</th><th></th></tr></thead><tbody>
+            {items.map(item=>{
+              const avail=item.onHand-item.reserved;
+              return(<tr key={item.sku}>
+                <td style={{fontFamily:'monospace',fontWeight:600,fontSize:'.78rem'}}>{item.sku}</td>
+                <td style={{fontWeight:500,fontSize:'.82rem'}}>{item.name}</td>
+                <td style={{textAlign:'center',fontWeight:700}}>{item.onHand}</td>
+                <td style={{textAlign:'center',color:'#7c3aed',fontWeight:600}}>{item.reserved}</td>
+                <td style={{textAlign:'center',fontWeight:700,color:avail<=0?'#dc2626':avail<item.reorder?'#d97706':'#16a34a'}}>{avail}</td>
+                <td style={{textAlign:'center',color:'#94a3b8'}}>{item.reorder}</td>
+                <td style={{color:'#94a3b8',fontSize:'.78rem'}}>{item.unit}</td>
+                <td><span className={'tag tag-'+(item.st==='OK'?'green':item.st==='LOW'?'yellow':'red')} style={{fontSize:'.68rem'}}>{item.st}</span></td>
+                <td>{(item.st==='LOW'||item.st==='OUT')&&<button className="btn btn-primary btn-sm" style={{fontSize:'.68rem'}} onClick={()=>alert('Requisition created!')}>Reorder</button>}</td>
+              </tr>);
+            })}
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Requester Dashboard ── */
+function RequesterDash({user,navigate}){
+  const[showForm,setShowForm]=useState(false);
+  const[form,setForm]=useState({asset:'',description:'',severity:'MEDIUM'});
+  const requests=[
+    {id:'SR-045',asset:'Pump Unit A-12',desc:'Loud noise and vibration',severity:'HIGH',status:'APPROVED',ago:'2h ago'},
+    {id:'SR-038',asset:'Office AC Unit',desc:'Not cooling properly',severity:'MEDIUM',status:'IN_PROGRESS',ago:'1d ago'},
+    {id:'SR-031',asset:'Elevator 2',desc:'Door closing slowly',severity:'LOW',status:'COMPLETED',ago:'3d ago'},
+  ];
+  return(
+    <div>
+      <AppNav user={user} navigate={navigate}/>
+      <div style={{maxWidth:900,margin:'0 auto',padding:'1.5rem'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem',flexWrap:'wrap',gap:12}}>
+          <div><h1 style={{fontSize:'1.3rem',fontWeight:800,color:'#0f172a'}}>My Service Requests</h1><p style={{color:'#64748b',fontSize:'.85rem',marginTop:2}}>Report equipment faults and track progress</p></div>
+          <button className="btn btn-teal" onClick={()=>setShowForm(!showForm)}>+ Report Fault</button>
+        </div>
+        {showForm&&(
+          <div className="card" style={{marginBottom:'1.25rem',padding:'1.5rem',border:'2px solid #0d9488'}}>
+            <div style={{fontWeight:700,marginBottom:'1rem',color:'#0f172a'}}>Report a Fault</div>
+            <div className="fg"><label>Asset / Equipment</label><input value={form.asset} onChange={e=>setForm({...form,asset:e.target.value})} placeholder="Pump Unit A-12, Office AC, Elevator..." required/></div>
+            <div className="fg"><label>Description of Problem</label><textarea rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Describe the fault in detail..." style={{resize:'vertical'}} required/></div>
+            <div className="fg"><label>Severity</label>
+              <select value={form.severity} onChange={e=>setForm({...form,severity:e.target.value})}>
+                <option value="LOW">LOW — Minor issue, no operational impact</option>
+                <option value="MEDIUM">MEDIUM — Reduced performance</option>
+                <option value="HIGH">HIGH — Significant operational impact</option>
+                <option value="CRITICAL">CRITICAL — Complete failure / safety risk</option>
+              </select>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-teal" onClick={()=>{alert('Request submitted!\n\nAPI: POST /api/v1/service-requests\n\nAsset: '+form.asset+'\nSeverity: '+form.severity);setShowForm(false);setForm({asset:'',description:'',severity:'MEDIUM'});}}>Submit Request</button>
+              <button className="btn btn-white" onClick={()=>setShowForm(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        <div className="grid3" style={{marginBottom:'1.25rem'}}>
+          <Stat label="Total Requests" value={requests.length} color="#1e40af" bg="#dbeafe" sub="All time"/>
+          <Stat label="In Progress" value={requests.filter(r=>r.status==='IN_PROGRESS'||r.status==='APPROVED').length} color="#d97706" bg="#fef3c7" sub="Being worked on"/>
+          <Stat label="Completed" value={requests.filter(r=>r.status==='COMPLETED').length} color="#16a34a" bg="#dcfce7" sub="Resolved"/>
+        </div>
+        <div className="card" style={{padding:'1.25rem'}}>
+          <div style={{fontWeight:700,fontSize:'.95rem',marginBottom:'1rem'}}>My Requests</div>
+          {requests.map(r=>(
+            <JCard key={r.id} job={{priority:r.severity}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:'.875rem'}}>{r.id} — {r.asset}</div>
+                  <div style={{fontSize:'.82rem',color:'#374151',marginTop:3}}>{r.desc}</div>
+                  <div style={{fontSize:'.72rem',color:'#94a3b8',marginTop:3}}>Submitted {r.ago}</div>
+                </div>
+                <div style={{textAlign:'right',flexShrink:0,marginLeft:12}}>
+                  <PTag p={r.severity}/>
+                  <div style={{marginTop:4}}><span className={'tag tag-'+(r.status==='COMPLETED'?'green':r.status==='IN_PROGRESS'?'yellow':'blue')} style={{fontSize:'.68rem'}}>{r.status.replace(/_/g,' ')}</span></div>
+                </div>
+              </div>
+              {r.status==='COMPLETED'&&<button className="btn btn-white btn-sm" style={{marginTop:8}} onClick={()=>alert('Dispute raised!')}>Raise Dispute</button>}
+            </JCard>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   DASHBOARD ROUTER — routes by role
+───────────────────────────────────────────────────────────────── */
+function Dashboard({navigate}){
+  const user=auth.getUser();
+  if(!auth.getToken()||!user){navigate('/login');return null;}
+  const role=user?.memberships?.[0]?.role||'';
+  if(role==='ORG_ADMIN'||role==='PLATFORM_ADMIN') return <AdminDash user={user} navigate={navigate}/>;
+  if(role==='DISPATCHER')          return <DispatcherDash user={user} navigate={navigate}/>;
+  if(role==='TECHNICIAN')          return <TechnicianDash user={user} navigate={navigate}/>;
+  if(role==='SUPERVISOR')          return <SupervisorDash user={user} navigate={navigate}/>;
+  if(role==='ASSET_MANAGER')       return <AssetManagerDash user={user} navigate={navigate}/>;
+  if(role==='INVENTORY_MANAGER')   return <InventoryDash user={user} navigate={navigate}/>;
+  if(role==='REQUESTER')           return <RequesterDash user={user} navigate={navigate}/>;
+  if(role==='MAINTENANCE_MANAGER') return <SupervisorDash user={user} navigate={navigate}/>;
+  return <AdminDash user={user} navigate={navigate}/>;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   APP
+───────────────────────────────────────────────────────────────── */
+function App(){
+  const{path,navigate}=useRoute();
+  if(path==='/login')     return <Login navigate={navigate}/>;
+  if(path==='/register')  return <Register navigate={navigate}/>;
+  if(path==='/dashboard') return <Dashboard navigate={navigate}/>;
+  return <Landing navigate={navigate}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
